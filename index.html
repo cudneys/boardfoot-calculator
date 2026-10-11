@@ -159,6 +159,7 @@
     line-height: 1;
     cursor: pointer;
   }
+  td .dims { display: block; font-size: .85rem; color: var(--muted); }
   .empty { margin: 8px 0 0; color: var(--muted); font-size: .9rem; }
   .note { margin: 0; font-size: .9rem; color: var(--muted); }
   [hidden] { display: none !important; }
@@ -244,6 +245,13 @@
     <p class="summary" id="summary"></p>
   </div>
 
+  <div class="card">
+    <div class="field">
+      <label for="name">Board name</label>
+      <input type="text" id="name" maxlength="60" autocomplete="off">
+    </div>
+  </div>
+
   <button type="button" class="primary" id="add">Add to lumber list</button>
 
   <div class="card">
@@ -274,6 +282,7 @@
     els[id] = document.getElementById(id));
   const presetButtons = document.querySelectorAll('#presets button');
   const addButton = document.getElementById('add');
+  const nameEl = document.getElementById('name');
 
   let list = [];
   try { list = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) {}
@@ -356,6 +365,21 @@
     return fmt(b.thickness, 3) + '″ × ' + fmt(b.width, 3) + '″ × ' + fmtLength(b.lengthIn);
   }
 
+  // First "Board N" not already on the list.
+  function defaultName() {
+    const taken = new Set(list.map(b => b.name));
+    let n = list.length + 1;
+    while (taken.has('Board ' + n)) n++;
+    return 'Board ' + n;
+  }
+
+  // Refreshes the pre-filled name, unless the user has typed their own.
+  function suggestName() {
+    const name = defaultName();
+    if (nameEl.value.trim() === '' || nameEl.value === nameEl.placeholder) nameEl.value = name;
+    nameEl.placeholder = name;
+  }
+
   function cell(text, className) {
     const td = document.createElement('td');
     td.textContent = text;
@@ -370,11 +394,18 @@
     body.textContent = '';
     list.forEach((b, i) => {
       const tr = document.createElement('tr');
-      tr.append(cell(describe(b)), cell(fmt(b.qty, 2)), cell(fmt(b.bf, 2)), cell(fmtMoney(b.cost)));
+      const board = cell(b.name || describe(b));
+      if (b.name) {
+        const dims = document.createElement('span');
+        dims.className = 'dims';
+        dims.textContent = describe(b);
+        board.append(dims);
+      }
+      tr.append(board, cell(fmt(b.qty, 2)), cell(fmt(b.bf, 2)), cell(fmtMoney(b.cost)));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = '×';
-      remove.setAttribute('aria-label', 'Remove ' + describe(b));
+      remove.setAttribute('aria-label', 'Remove ' + (b.name || describe(b)));
       remove.addEventListener('click', () => { list.splice(i, 1); renderList(); });
       const td = cell('', 'remove');
       td.append(remove);
@@ -391,6 +422,7 @@
     document.getElementById('listTable').hidden = isEmpty;
     document.getElementById('clear').hidden = isEmpty;
     document.getElementById('empty').hidden = !isEmpty;
+    suggestName();
   }
 
   presetButtons.forEach(btn => btn.addEventListener('click', () => {
@@ -400,8 +432,13 @@
   Object.values(els).forEach(el => el.addEventListener('input', update));
   addButton.addEventListener('click', () => {
     const b = current();
-    if (b.bf > 0) { list.push(b); renderList(); }
+    if (b.bf <= 0) return;
+    b.name = nameEl.value.trim() || nameEl.placeholder;
+    nameEl.value = '';
+    list.push(b);
+    renderList();
   });
+  nameEl.addEventListener('blur', suggestName);
   document.getElementById('clear').addEventListener('click', () => { list = []; renderList(); });
 
   update();
