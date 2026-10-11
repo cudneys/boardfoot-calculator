@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board Foot Calculator</title>
+<style>
+  :root {
+    --bg: #f6efe4;
+    --card: #fffaf2;
+    --ink: #2b1d10;
+    --muted: #7a6650;
+    --line: #e2d3bd;
+    --accent: #b5651d;
+    --accent-ink: #fff;
+    --result-bg: #3a2413;
+    --result-ink: #fbe9cf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a130d;
+      --card: #251b12;
+      --ink: #f3e6d3;
+      --muted: #b09a80;
+      --line: #40301f;
+      --accent: #e0913f;
+      --accent-ink: #1a130d;
+      --result-bg: #100b07;
+      --result-ink: #fbe9cf;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px 48px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font: 600 2rem/1.2 Georgia, "Times New Roman", serif; }
+  .lede { margin: 0 0 24px; color: var(--muted); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  label, .label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .field + .field, .field + .row, .row + .field { margin-top: 20px; }
+  .row { display: flex; gap: 8px; }
+  .row > .field { flex: 1; min-width: 0; margin-top: 0; }
+  input, select, button { font: inherit; color: inherit; }
+  input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  input[aria-invalid="true"] { border-color: #c0392b; }
+  .unit { position: relative; flex: 1; min-width: 0; }
+  .unit input { padding-right: 40px; }
+  .unit.prefix input { padding-right: 12px; padding-left: 26px; }
+  .unit span {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .unit.prefix span { right: auto; left: 12px; }
+  .hint { margin: 6px 0 0; font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .presets button {
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .presets button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .result {
+    background: var(--result-bg);
+    color: var(--result-ink);
+    border-radius: 12px;
+    padding: 24px 20px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .result .label { color: inherit; opacity: .7; }
+  .big {
+    font: 600 3rem/1.1 Georgia, "Times New Roman", serif;
+    font-variant-numeric: tabular-nums;
+  }
+  .big small { font-size: 1.25rem; font-weight: 400; }
+  .alt { margin-top: 6px; opacity: .8; font-variant-numeric: tabular-nums; }
+  .cost {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(251, 233, 207, .2);
+  }
+  .cost .big { font-size: 2.25rem; }
+  .summary { margin: 12px 0 0; font-size: .9rem; opacity: .7; }
+  .primary {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .link {
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--accent);
+    font-size: .9rem;
+    cursor: pointer;
+  }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  tfoot td { border-bottom: 0; font-weight: 700; color: var(--accent); }
+  td.remove { width: 28px; padding-right: 0; }
+  td.remove button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .empty { margin: 8px 0 0; color: var(--muted); font-size: .9rem; }
+  .note { margin: 0; font-size: .9rem; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Board Foot Calculator</h1>
+  <p class="lede">How much lumber you're buying, and what it will cost.</p>
+
+  <div class="card">
+    <div class="field">
+      <label for="thickness">Thickness</label>
+      <div class="unit">
+        <input type="text" id="thickness" value="1" autocomplete="off" spellcheck="false">
+        <span>in</span>
+      </div>
+      <div class="presets" id="presets">
+        <button type="button" data-t="1">4/4</button>
+        <button type="button" data-t="1.25">5/4</button>
+        <button type="button" data-t="1.5">6/4</button>
+        <button type="button" data-t="2">8/4</button>
+        <button type="button" data-t="2.5">10/4</button>
+        <button type="button" data-t="3">12/4</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="width">Width</label>
+      <div class="unit">
+        <input type="text" id="width" value="6" autocomplete="off" spellcheck="false">
+        <span>in</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="feet">Length</label>
+      <div class="row">
+        <div class="unit">
+          <input type="text" id="feet" value="8" autocomplete="off" spellcheck="false" aria-label="Length, feet">
+          <span>ft</span>
+        </div>
+        <div class="unit">
+          <input type="text" id="inches" value="0" autocomplete="off" spellcheck="false" aria-label="Length, additional inches">
+          <span>in</span>
+        </div>
+      </div>
+      <p class="hint" id="lengthHint"></p>
+      <p class="hint">Dimensions take decimals or fractions: 5.5, 3/4, 5 1/2.</p>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="qty">Quantity</label>
+        <input type="number" id="qty" value="1" min="0" step="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="waste">Waste allowance</label>
+        <div class="unit">
+          <input type="number" id="waste" value="0" min="0" step="any" inputmode="decimal">
+          <span>%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="price">Price per board foot</label>
+      <div class="unit prefix">
+        <input type="number" id="price" value="" min="0" step="any" inputmode="decimal" placeholder="0.00">
+        <span>$</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <div class="label">Board feet</div>
+    <div class="big"><span id="bf">4</span> <small>bd ft</small></div>
+    <div class="alt" id="alt"></div>
+    <div class="cost">
+      <div class="label">Cost</div>
+      <div class="big" id="cost">$0.00</div>
+    </div>
+    <p class="summary" id="summary"></p>
+  </div>
+
+  <button type="button" class="primary" id="add">Add to lumber list</button>
+
+  <div class="card">
+    <div class="list-head">
+      <div class="label">Lumber list</div>
+      <button type="button" class="link" id="clear" hidden>Clear all</button>
+    </div>
+    <table id="listTable" hidden>
+      <thead><tr><th>Board</th><th>Qty</th><th>Bd ft</th><th>Cost</th><th></th></tr></thead>
+      <tbody id="list"></tbody>
+      <tfoot><tr><td>Total</td><td id="totalQty"></td><td id="totalBf"></td><td id="totalCost"></td><td></td></tr></tfoot>
+    </table>
+    <p class="empty" id="empty">No boards yet. Add the one above to total up a whole order.</p>
+  </div>
+
+  <p class="note">A board foot is 144 cubic inches of wood &mdash; a piece 1 in thick, 12 in wide and 1 ft long &mdash;
+  so board feet = thickness &times; width &times; length (all in inches) &divide; 144. Rough lumber is sold by its
+  nominal quarter thickness: 4/4 is 1 in, 8/4 is 2 in.</p>
+</main>
+
+<script>
+  const CUBIC_IN_PER_BF = 144;
+  const IN_PER_FT = 12;
+  const STORAGE_KEY = 'boardfoot-list';
+
+  const els = {};
+  ['thickness', 'width', 'feet', 'inches', 'qty', 'waste', 'price'].forEach(id =>
+    els[id] = document.getElementById(id));
+  const presetButtons = document.querySelectorAll('#presets button');
+  const addButton = document.getElementById('add');
+
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) {}
+
+  // Board feet for one board, all dimensions in inches.
+  function boardFeet(thickness, width, lengthIn) {
+    return thickness * width * lengthIn / CUBIC_IN_PER_BF;
+  }
+
+  function num(el) {
+    return Math.max(0, parseFloat(el.value) || 0);
+  }
+
+  // Parses "5.5", "3/4", "5 1/2" or "5-1/2". Returns NaN if it isn't one of those.
+  function parseFraction(text) {
+    const s = text.trim();
+    let m;
+    if (s === '') return 0;
+    if (/^(\d+\.?\d*|\.\d+)$/.test(s)) return parseFloat(s);
+    if ((m = s.match(/^(\d+)\s*\/\s*(\d+)$/))) return +m[2] ? m[1] / m[2] : NaN;
+    if ((m = s.match(/^(\d+)[\s-]+(\d+)\s*\/\s*(\d+)$/))) return +m[3] ? +m[1] + m[2] / m[3] : NaN;
+    return NaN;
+  }
+
+  // A dimension field's value; unreadable input is flagged and counts as 0.
+  function dim(el) {
+    const n = parseFraction(el.value);
+    el.setAttribute('aria-invalid', String(isNaN(n)));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function fmt(n, places) {
+    return n.toLocaleString(undefined, { maximumFractionDigits: places });
+  }
+
+  function fmtMoney(n) {
+    return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  }
+
+  // 102 -> 8′ 6″
+  function fmtLength(lengthIn) {
+    let ft = Math.floor(lengthIn / IN_PER_FT);
+    let inch = Math.round((lengthIn - ft * IN_PER_FT) * 100) / 100;
+    if (inch >= IN_PER_FT) { ft += 1; inch = 0; }
+    return ft + '′ ' + inch + '″';
+  }
+
+  function current() {
+    const thickness = dim(els.thickness);
+    const width = dim(els.width);
+    const lengthIn = dim(els.feet) * IN_PER_FT + dim(els.inches);
+    const qty = num(els.qty);
+    const waste = num(els.waste);
+    const price = num(els.price);
+    const each = boardFeet(thickness, width, lengthIn);
+    const bf = each * qty * (1 + waste / 100);
+    return { thickness, width, lengthIn, qty, waste, price, each, bf, cost: bf * price };
+  }
+
+  function update() {
+    const b = current();
+
+    document.getElementById('lengthHint').textContent =
+      fmtLength(b.lengthIn) + ' = ' + fmt(b.lengthIn, 2) + ' in = ' + fmt(b.lengthIn / IN_PER_FT, 3) + ' ft';
+    document.getElementById('bf').textContent = fmt(b.bf, 2);
+    document.getElementById('alt').textContent =
+      fmt(b.each, 2) + ' bd ft per board · ' + fmt(b.lengthIn * b.qty / IN_PER_FT, 2) + ' linear ft';
+    document.getElementById('cost').textContent = fmtMoney(b.cost);
+    document.getElementById('summary').textContent =
+      fmt(b.qty, 2) + ' × ' + describe(b) +
+      (b.waste ? ' + ' + fmt(b.waste, 2) + '% waste' : '') +
+      (b.price ? ' at ' + fmtMoney(b.price) + '/bd ft' : '');
+
+    presetButtons.forEach(btn =>
+      btn.setAttribute('aria-pressed', String(parseFloat(btn.dataset.t) === b.thickness)));
+    addButton.disabled = b.bf <= 0;
+  }
+
+  function describe(b) {
+    return fmt(b.thickness, 3) + '″ × ' + fmt(b.width, 3) + '″ × ' + fmtLength(b.lengthIn);
+  }
+
+  function cell(text, className) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (className) td.className = className;
+    return td;
+  }
+
+  function renderList() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+
+    const body = document.getElementById('list');
+    body.textContent = '';
+    list.forEach((b, i) => {
+      const tr = document.createElement('tr');
+      tr.append(cell(describe(b)), cell(fmt(b.qty, 2)), cell(fmt(b.bf, 2)), cell(fmtMoney(b.cost)));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', 'Remove ' + describe(b));
+      remove.addEventListener('click', () => { list.splice(i, 1); renderList(); });
+      const td = cell('', 'remove');
+      td.append(remove);
+      tr.append(td);
+      body.append(tr);
+    });
+
+    const sum = key => list.reduce((total, b) => total + b[key], 0);
+    document.getElementById('totalQty').textContent = fmt(sum('qty'), 2);
+    document.getElementById('totalBf').textContent = fmt(sum('bf'), 2);
+    document.getElementById('totalCost').textContent = fmtMoney(sum('cost'));
+
+    const isEmpty = list.length === 0;
+    document.getElementById('listTable').hidden = isEmpty;
+    document.getElementById('clear').hidden = isEmpty;
+    document.getElementById('empty').hidden = !isEmpty;
+  }
+
+  presetButtons.forEach(btn => btn.addEventListener('click', () => {
+    els.thickness.value = btn.dataset.t;
+    update();
+  }));
+  Object.values(els).forEach(el => el.addEventListener('input', update));
+  addButton.addEventListener('click', () => {
+    const b = current();
+    if (b.bf > 0) { list.push(b); renderList(); }
+  });
+  document.getElementById('clear').addEventListener('click', () => { list = []; renderList(); });
+
+  update();
+  renderList();
+</script>
+</body>
+</html>
