@@ -172,6 +172,16 @@
 
   <div class="card">
     <div class="field">
+      <label for="species">Species (optional)</label>
+      <input type="text" id="species" maxlength="40" autocomplete="off" list="speciesList" placeholder="e.g. Walnut">
+      <datalist id="speciesList">
+        <option value="Ash"><option value="Cherry"><option value="Hard Maple"><option value="Mahogany">
+        <option value="Pine"><option value="Poplar"><option value="Red Oak"><option value="Soft Maple">
+        <option value="Walnut"><option value="White Oak">
+      </datalist>
+    </div>
+
+    <div class="field">
       <label for="thickness">Thickness</label>
       <div class="unit">
         <input type="text" id="thickness" value="1" autocomplete="off" spellcheck="false">
@@ -283,6 +293,7 @@
   const presetButtons = document.querySelectorAll('#presets button');
   const addButton = document.getElementById('add');
   const nameEl = document.getElementById('name');
+  const speciesEl = document.getElementById('species');
 
   let list = [];
   try { list = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) {}
@@ -339,7 +350,8 @@
     const price = num(els.price);
     const each = boardFeet(thickness, width, lengthIn);
     const bf = each * qty * (1 + waste / 100);
-    return { thickness, width, lengthIn, qty, waste, price, each, bf, cost: bf * price };
+    const species = speciesEl.value.trim();
+    return { species, thickness, width, lengthIn, qty, waste, price, each, bf, cost: bf * price };
   }
 
   function update() {
@@ -359,23 +371,31 @@
     presetButtons.forEach(btn =>
       btn.setAttribute('aria-pressed', String(parseFloat(btn.dataset.t) === b.thickness)));
     addButton.disabled = b.bf <= 0;
+    suggestName();
   }
 
   function describe(b) {
     return fmt(b.thickness, 3) + '″ × ' + fmt(b.width, 3) + '″ × ' + fmtLength(b.lengthIn);
   }
 
-  // First "Board N" not already on the list.
-  function defaultName() {
-    const taken = new Set(list.map(b => b.name));
-    let n = list.length + 1;
-    while (taken.has('Board ' + n)) n++;
-    return 'Board ' + n;
+  // 1.5 -> 6/4; thicknesses that aren't a whole number of quarters stay in inches.
+  function fmtQuarters(thickness) {
+    const quarters = thickness * 4;
+    return quarters > 0 && Number.isInteger(quarters) ? quarters + '/4' : fmt(thickness, 3) + '″';
+  }
+
+  // "Board N", or "6/4 Walnut Board N" when a species is given; N is the first not already on the list.
+  function defaultName(b) {
+    const prefix = (b.species ? fmtQuarters(b.thickness) + ' ' + b.species + ' ' : '') + 'Board ';
+    const taken = new Set(list.map(item => item.name));
+    let n = list.filter(item => item.name && item.name.startsWith(prefix)).length + 1;
+    while (taken.has(prefix + n)) n++;
+    return prefix + n;
   }
 
   // Refreshes the pre-filled name, unless the user has typed their own.
   function suggestName() {
-    const name = defaultName();
+    const name = defaultName(current());
     if (nameEl.value.trim() === '' || nameEl.value === nameEl.placeholder) nameEl.value = name;
     nameEl.placeholder = name;
   }
@@ -429,7 +449,7 @@
     els.thickness.value = btn.dataset.t;
     update();
   }));
-  Object.values(els).forEach(el => el.addEventListener('input', update));
+  Object.values(els).concat(speciesEl).forEach(el => el.addEventListener('input', update));
   addButton.addEventListener('click', () => {
     const b = current();
     if (b.bf <= 0) return;
